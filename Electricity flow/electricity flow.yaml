@@ -1,0 +1,337 @@
+
+blueprint:
+  name: Electricity flow
+  description: >
+    Calculates energy flows in real time using kW sensors or in kWh (for further price calculations, for example).
+    The results are stored in helper variables to be created.
+
+    **Version: 1.00**
+  author: Tazzios
+  domain: automation
+
+  input:
+
+    input_sensors:
+      name: input sensors
+      icon: mdi:transmission-tower-import
+      description: Select the sensors for the energy calculation.
+      collapsed: false
+      input:
+
+        grid_sensor:
+          name: Grid
+          description: Positief = import, negatief = export.
+          default: sensor.ef_grid_kwh_quarter
+          selector:
+            entity:
+              domain: sensor
+
+        solar_sensors:
+          name: Solar
+          description: Select one or more sensors.
+          default:
+            - sensor.ef_solar_1_kwh_quarter
+          selector:
+            entity:
+              domain: sensor
+              multiple: true
+
+        battery_charge_sensors:
+          name: Battery Charging
+          description: Select one or more sensors.
+          default: 
+            - sensor.ef_battery_charge_1_kwh_quarter
+          selector:
+            entity:
+              domain: sensor
+              multiple: true
+
+        battery_discharge_sensors:
+          name: Battery Discharge
+          description: Select one or more sensors.
+          default: 
+            - sensor.ef_battery_discharge_1_kwh_quarter
+          selector:
+            entity:
+              domain: sensor
+              multiple: true
+
+    output_sensors:
+      name: Output Sensors
+      icon: mdi:transmission-tower-export
+      description: Select the helpers in which the results will be stored.
+      collapsed: false
+      input:
+
+        output_house:
+          name: Home consumption
+          default: input_number.ef_output_house_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_solar_home:
+          name: Solar to home
+          default: input_number.ef_output_solar_home_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_solar_battery:
+          name: Solar to battery
+          default: input_number.ef_output_solar_battery_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_solar_grid:
+          name: Solar to grid
+          default: input_number.ef_output_solar_grid_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_grid_home:
+          name: Grid to home
+          default: input_number.ef_output_grid_home_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_grid_battery:
+          name: Grid to battery
+          default: input_number.ef_output_grid_battery_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_battery_home:
+          name: Battery to home
+          default: input_number.ef_output_battery_home_kwh
+          selector:
+            entity:
+              domain: input_number
+
+        output_battery_grid:
+          name: Battery to grid
+          default: input_number.ef_output_battery_grid_kwh
+          selector:
+            entity:
+              domain: input_number
+
+    settings:
+      name: Settings
+      icon: mdi:cog
+      description: Additional settings.
+      collapsed: false
+      input:              
+
+        output_precision:
+          name: Number of decimals
+          description: Specify the rounding of the output values.
+          default: 3
+          selector:
+            number:
+              min: 0
+              max: 6
+              step: 1
+              mode: slider
+
+        update_interval:
+          name: Update interval
+          description: Interval for the energy calculation in seconds.
+          default: 30
+          selector:
+            number:
+              min: 1
+              max: 900
+              step: 1
+              unit_of_measurement: seconds
+              mode: box
+
+trigger:
+  - platform: time_pattern
+    seconds: "/1"
+
+  - platform: time_pattern
+    minutes: "/15"
+    seconds: "0"
+
+condition:
+  - condition: template
+    value_template: >
+      {{ now().timestamp() | int % (update_interval | int) == 0 }}
+
+variables:
+  solar_sensors: !input solar_sensors
+  grid_sensor: !input grid_sensor
+  battery_charge_sensors: !input battery_charge_sensors
+  battery_discharge_sensors: !input battery_discharge_sensors
+
+
+  output_precision: !input output_precision
+  update_interval: !input update_interval
+
+  solar_production: >
+    {% set ns = namespace(total=0) %}
+    {% for s in expand(solar_sensors) %}
+      {% set value = s.state | float(0) %}
+      {% if s.attributes.unit_of_measurement == 'kW' %}
+        {% set ns.total = ns.total + value * 1000 %}
+      {% else %}
+        {% set ns.total = ns.total + value %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.total }}
+
+  grid_power: >
+    {% set value = states(grid_sensor) | float(0) %}
+    {% if state_attr(grid_sensor, 'unit_of_measurement') == 'kW' %}
+      {{ value * 1000 }}
+    {% else %}
+      {{ value }}
+    {% endif %}
+
+  battery_charge: >
+    {% set ns = namespace(total=0) %}
+    {% for s in expand(battery_charge_sensors) %}
+      {% set value = s.state | float(0) %}
+      {% if s.attributes.unit_of_measurement == 'kW' %}
+        {% set ns.total = ns.total + value * 1000 %}
+      {% else %}
+        {% set ns.total = ns.total + value %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.total }}
+
+  battery_discharge: >
+    {% set ns = namespace(total=0) %}
+    {% for s in expand(battery_discharge_sensors) %}
+      {% set value = s.state | float(0) %}
+      {% if s.attributes.unit_of_measurement == 'kW' %}
+        {% set ns.total = ns.total + value * 1000 %}
+      {% else %}
+        {% set ns.total = ns.total + value %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.total }}
+
+
+  # start calculation
+  grid_import: "{{ max(grid_power, 0) }}"
+  grid_export: "{{ max(-grid_power, 0) }}"
+
+  house_consumption: >
+    {{ max(solar_production + battery_discharge
+    + grid_import - battery_charge - grid_export, 0) }}
+
+  solar_to_home: >
+    {{ min(solar_production, house_consumption) }}
+
+  solar_surplus: >
+    {{ max(solar_production - solar_to_home, 0) }}
+
+  solar_to_battery: >
+    {{ min(battery_charge, solar_surplus) }}
+
+  solar_to_grid: >
+    {{ max(solar_surplus - solar_to_battery, 0) }}
+
+  battery_to_grid: >
+    {{ min(battery_discharge, grid_export) }}
+
+  battery_to_home: >
+    {{ min(max(battery_discharge - battery_to_grid, 0),
+    max(house_consumption - solar_to_home, 0)) }}
+
+  grid_to_battery: >
+    {{ max(battery_charge - solar_to_battery, 0) }}
+
+  grid_to_home: >
+    {{ max(house_consumption - solar_to_home - battery_to_home, 0) }}
+
+
+# Set values
+action:
+  - if:
+      - condition: template
+        value_template: "{{ output_house != none and output_house != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_house
+        data:
+          value: "{{ house_consumption | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_solar_home != none and output_solar_home != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_solar_home
+        data:
+          value: "{{ solar_to_home | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_solar_battery != none and output_solar_battery != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_solar_battery
+        data:
+          value: "{{ solar_to_battery | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_solar_grid != none and output_solar_grid != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_solar_grid
+        data:
+          value: "{{ solar_to_grid | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_grid_home != none and output_grid_home != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_grid_home
+        data:
+          value: "{{ grid_to_home | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_grid_battery != none and output_grid_battery != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_grid_battery
+        data:
+          value: "{{ grid_to_battery | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_battery_home != none and output_battery_home != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_battery_home
+        data:
+          value: "{{ battery_to_home | round(output_precision) }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ output_battery_grid != none and output_battery_grid != '' }}"
+    then:
+      - service: input_number.set_value
+        target:
+          entity_id: !input output_battery_grid
+        data:
+          value: "{{ battery_to_grid | round(output_precision) }}"
+
+
+mode: restart

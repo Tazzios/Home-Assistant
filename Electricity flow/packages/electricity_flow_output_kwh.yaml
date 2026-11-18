@@ -1,0 +1,65 @@
+input_number:
+
+  ef_output_house_kwh:
+    name: Energie verbruik huishouden kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_solar_home_kwh:
+    name: Energie zon naar huis kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_solar_battery_kwh:
+    name: Energie zon naar batterij kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_solar_grid_kwh:
+    name: Energie zon naar net kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_grid_home_kwh:
+    name: Energie net naar huis kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_grid_battery_kwh:
+    name: Energie net naar batterij kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_battery_home_kwh:
+    name: Energie batterij naar huis kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box
+
+  ef_output_battery_grid_kwh:
+    name: Energie batterij naar net kWh
+    min: 0
+    max: 50000
+    step: 0.001
+    unit_of_measurement: kWh
+    mode: box

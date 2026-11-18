@@ -1,0 +1,52 @@
+utility_meter:
+
+  # Zonneproductie
+  ef_solar_1_kwh_quarter:
+    source: sensor.zon_opbrengst_per_dag_kwh
+    cycle: quarter-hourly
+
+#  ef_solar_2_kwh_quarter:
+#    source: sensor.omvormer_2_energy_total
+#    cycle: quarter-hourly
+
+  # Batterij laden
+  ef_battery_charge_1_kwh_quarter:
+    source: sensor.marstek_m1_lifetime_discharging_energy
+    cycle: quarter-hourly
+
+  ef_battery_charge_2_kwh_quarter:
+    source: sensor.sessy_deem_charged_energy
+    cycle: quarter-hourly
+
+  # Batterij ontladen
+  ef_battery_discharge_1_kwh_quarter:
+    source: sensor.marstek_m1_lifetime_charging_energy
+    cycle: quarter-hourly
+
+  ef_battery_discharge_2_kwh_quarter:
+    source: sensor.sessy_deem_discharged_energy
+    cycle: quarter-hourly
+
+  # Netenergie
+  ef_grid_import_kwh_quarter:
+    source: sensor.p1_electricity_meter_total_consumed_energy
+    cycle: quarter-hourly
+
+  ef_grid_export_kwh_quarter:
+    source: sensor.p1_electricity_meter_total_produced_energy
+    cycle: quarter-hourly
+
+template:
+  - sensor:
+      - name: "ef Grid kWh quarter"
+        unique_id: ef_grid_kwh_quarter
+        state: >
+          {{
+            (
+              states('sensor.grid_import_kwh_quarter') | float(0)
+              -
+              states('sensor.grid_export_kwh_quarter') | float(0)
+            ) | round(3)
+          }}
+        unit_of_measurement: "kWh"
+        device_class: energy
