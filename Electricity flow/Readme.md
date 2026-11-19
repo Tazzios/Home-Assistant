@@ -17,7 +17,7 @@ Note: Because of the 15 minute aggregation it won`t be 100% accurate.
 ## install the blueprint
 
 1. Install the blueprint:
-[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FTazzios%2FHome-Assistant%2Fblob%2Fmain%2FElectricity+flow%2Felectricity+flow.yaml)
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FTazzios%2FHome-Assistant%2Fblob%2Fmain%2FElectricity%20flow%2Felectricity%20flow.yaml)
 
 2. **create the helpers first** with the packages below or manually.  
 
