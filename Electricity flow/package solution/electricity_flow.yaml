@@ -1,0 +1,277 @@
+
+# ==========================================================
+# ELECTRICITY FLOW
+# Utility meters + energy flow calculations
+# ==========================================================
+
+# 1. update the 'source:' utility meters. For solar an battery you can create or delete them as needed.
+# 2 . Add the for solar en battery utility meters to the variables under 'ELECTRICITY FLOW INPUT SENSORS'
+
+utility_meter:
+
+  # SOLAR
+  ef_solar_1_kwh_quarter:
+    name: "EF Solar 1 kWh Quarter"
+    source: sensor.zon_opbrengst_per_dag_kwh
+    cycle: quarter-hourly
+
+  # ef_solar_2_kwh_quarter:
+  #   name: "EF Solar 2 kWh Quarter"
+  #   source: sensor.omvormer_2_energy_total
+  #   cycle: quarter-hourly
+
+  # BATTERY CHARGING
+  ef_battery_charge_1_kwh_quarter:
+    name: "EF Battery Charge 1 kWh Quarter"
+    source: sensor.marstek_m1_lifetime_charging_energy
+    cycle: quarter-hourly
+
+  ef_battery_charge_2_kwh_quarter:
+    name: "EF Battery Charge 2 kWh Quarter"
+    source: sensor.sessy_deem_charged_energy
+    cycle: quarter-hourly
+
+  # BATTERY DISCHARGING
+  ef_battery_discharge_1_kwh_quarter:
+    name: "EF Battery Discharge 1 kWh Quarter"
+    source: sensor.marstek_m1_lifetime_discharging_energy
+    cycle: quarter-hourly
+
+  ef_battery_discharge_2_kwh_quarter:
+    name: "EF Battery Discharge 2 kWh Quarter"
+    source: sensor.sessy_deem_discharged_energy
+    cycle: quarter-hourly
+
+  # GRID
+  ef_grid_import_kwh_quarter:
+    name: "EF Grid Import kWh Quarter"
+    source: sensor.p1_electricity_meter_total_consumed_energy
+    cycle: quarter-hourly
+
+  ef_grid_export_kwh_quarter:
+    name: "EF Grid Export kWh Quarter"
+    source: sensor.p1_electricity_meter_total_produced_energy
+    cycle: quarter-hourly
+
+# ==========================================================
+# GRID NET SENSOR
+# ==========================================================
+
+template:
+
+  - sensor:
+      - name: "EF Grid kWh Quarter"
+        unique_id: ef_grid_kwh_quarter
+        state: >
+          {{
+            (
+              states('sensor.ef_grid_import_kwh_quarter') | float(0)
+              -
+              states('sensor.ef_grid_export_kwh_quarter') | float(0)
+            ) | round(3)
+          }}
+        unit_of_measurement: "kWh"
+        device_class: energy
+
+
+# ==========================================================
+# ELECTRICITY FLOW INPUT SENSORS
+# ==========================================================
+
+  - triggers:
+      - trigger: time_pattern
+        seconds: "/30"
+
+    variables:
+
+      # INPUT SENSORS
+      solar_sensors:
+        - sensor.ef_solar_1_kwh_quarter
+
+      battery_charge_sensors:
+        - sensor.ef_battery_charge_1_kwh_quarter
+        - sensor.ef_battery_charge_2_kwh_quarter
+
+      battery_discharge_sensors:
+        - sensor.ef_battery_discharge_1_kwh_quarter
+        - sensor.ef_battery_discharge_2_kwh_quarter
+
+      output_precision: 3
+
+# ==========================================================
+# ELECTRICITY FLOW OUTPUT Calculation
+# ==========================================================
+
+      # SOLAR PRODUCTION
+      solar_production: >
+        {{ expand(solar_sensors)
+          | map(attribute='state')
+          | map('float', 0)
+          | sum }}
+
+      battery_charge: >
+        {{ expand(battery_charge_sensors)
+          | map(attribute='state')
+          | map('float', 0)
+          | sum }}
+
+      battery_discharge: >
+        {{ expand(battery_discharge_sensors)
+          | map(attribute='state')
+          | map('float', 0)
+          | sum }}
+
+      # GRID
+      grid_power: >
+        {{ states('sensor.ef_grid_kwh_quarter') | float(0) }}
+
+      # START CALCULATION
+      grid_import: "{{ max(grid_power, 0) }}"
+      grid_export: "{{ max(-grid_power, 0) }}"
+
+      house_consumption: >
+        {{ max(solar_production + battery_discharge
+        + grid_import - battery_charge - grid_export, 0) }}
+
+      solar_to_home: >
+        {{ min(solar_production, house_consumption) }}
+
+      solar_surplus: >
+        {{ max(solar_production - solar_to_home, 0) }}
+
+      solar_to_battery: >
+        {{ min(battery_charge, solar_surplus) }}
+
+      solar_to_grid: >
+        {{ max(solar_surplus - solar_to_battery, 0) }}
+
+      battery_to_grid: >
+        {{ min(battery_discharge, grid_export) }}
+
+      battery_to_home: >
+        {{ min(max(battery_discharge - battery_to_grid, 0),
+        max(house_consumption - solar_to_home, 0)) }}
+
+      grid_to_battery: >
+        {{ max(battery_charge - solar_to_battery, 0) }}
+
+      grid_to_home: >
+        {{ max(house_consumption - solar_to_home - battery_to_home, 0) }}
+
+# ==========================================================
+# ELECTRICITY FLOW OUTPUT SENSORS
+# ==========================================================
+
+
+    sensor:
+
+      # HOUSE
+      - name: "EF Output House kWh"
+        unique_id: ef_output_house_kwh
+        default_entity_id: sensor.ef_output_house_kwh
+        state: "{{ house_consumption }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(
+              minute=(now().minute // 15) * 15,
+              second=0,
+              microsecond=0
+            ).isoformat() }}
+
+      # SOLAR TO HOME
+      - name: "EF Output Solar Home kWh"
+        unique_id: ef_output_solar_home_kwh
+        default_entity_id: sensor.ef_output_solar_home_kwh
+        state: "{{ solar_to_home }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+      # SOLAR TO BATTERY
+      - name: "EF Output Solar Battery kWh"
+        unique_id: ef_output_solar_battery_kwh
+        default_entity_id: sensor.ef_output_solar_battery_kwh
+        state: "{{ solar_to_battery }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+      # SOLAR TO GRID
+      - name: "EF Output Solar Grid kWh"
+        unique_id: ef_output_solar_grid_kwh
+        default_entity_id: sensor.ef_output_solar_grid_kwh
+        state: "{{ solar_to_grid }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+      # GRID TO HOME
+      - name: "EF Output Grid Home kWh"
+        unique_id: ef_output_grid_home_kwh
+        default_entity_id: sensor.ef_output_grid_home_kwh
+        state: "{{ grid_to_home }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+      # GRID TO BATTERY
+      - name: "EF Output Grid Battery kWh"
+        unique_id: ef_output_grid_battery_kwh
+        default_entity_id: sensor.ef_output_grid_battery_kwh
+        state: "{{ grid_to_battery }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+      # BATTERY TO HOME
+      - name: "EF Output Battery Home kWh"
+        unique_id: ef_output_battery_home_kwh
+        default_entity_id: sensor.ef_output_battery_home_kwh
+        state: "{{ battery_to_home }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+      # BATTERY TO GRID
+      - name: "EF Output Battery Grid kWh"
+        unique_id: ef_output_battery_grid_kwh
+        default_entity_id: sensor.ef_output_battery_grid_kwh
+        state: "{{ battery_to_grid }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        attributes:
+          last_reset: >
+            {{ now().replace(minute=(now().minute // 15) * 15, second=0, microsecond=0).isoformat() }}
+
+# ===========================            
+# dynamic_energy_cost
+# =========================
+
+
+sensor:
+  - platform: dynamic_energy_cost
+    name: Grid Battery
+    energy_sensor: sensor.ef_output_grid_battery_kwh
+    price_sensor: sensor.elektra_uurprijs

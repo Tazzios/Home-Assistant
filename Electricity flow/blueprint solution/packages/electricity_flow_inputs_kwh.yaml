@@ -43,9 +43,9 @@ template:
         state: >
           {{
             (
-              states('sensor.grid_import_kwh_quarter') | float(0)
+              states('sensor.ef_grid_import_kwh_quarter') | float(0)
               -
-              states('sensor.grid_export_kwh_quarter') | float(0)
+              states('sensor.ef_grid_export_kwh_quarter') | float(0)
             ) | round(3)
           }}
         unit_of_measurement: "kWh"
