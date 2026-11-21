@@ -1,5 +1,9 @@
 # Electricity Flow blueprint
 
+> **This project has moved.** Electricity Flow is now a custom integration (installable via HACS) in its own repository:
+> **[github.com/Tazzios/ha-electricity-flow](https://github.com/Tazzios/ha-electricity-flow)**.
+> The blueprint and package below are no longer maintained.
+
 The Electricity Flow blueprint calculates energy distribution between solar , the  grid, household  and battery. It determines how much energy flows between each source and destination, and stores the calculated values in Home Assistant helpers for monitoring, energy tracking and further calculations.
 
 My use cases is to calculate the savings from my battery and solar.
