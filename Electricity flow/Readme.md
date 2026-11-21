@@ -2,22 +2,22 @@
 
 The Electricity Flow blueprint calculates energy distribution between solar , the  grid, household  and battery. It determines how much energy flows between each source and destination, and stores the calculated values in Home Assistant helpers for monitoring, energy tracking and further calculations.
 
-My use cases it to calculate the savings from my battery and solar.
+My use cases is to calculate the savings from my battery and solar.
 Pricing that i want to set:  
 - Solar to home, grid import prices.
 - Solar to battery, grid export prices.
 - Battery to home, grid import prices.  
 - Battery to home, grid export prices.  
 
-Note: Because of the 15 minute aggregation it won`t be 100% accurate.
+Note: Because of the 15 minute aggregation it won`t be 100% accurate but smaller will have other issues.
 
-(link to technical design document )
+More details about wat it does and how it works in the [Technical design document](https://github.com/Tazzios/Home-Assistant/blob/main/Electricity%20flow/Technical%20Design%20Document.md) document.
 
 ---
 ## install the blueprint
 
 1. Install the blueprint:
-[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FTazzios%2FHome-Assistant%2Fblob%2Fmain%2FElectricity+flow%2Felectricity+flow.yaml)
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FTazzios%2FHome-Assistant%2Fblob%2Fmain%2FElectricity%20flow%2Felectricity%20flow.yaml)
 
 2. **create the helpers first** with the packages below or manually.  
 
